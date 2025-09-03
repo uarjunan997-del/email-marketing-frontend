@@ -1,0 +1,9 @@
+{
+  "name": "app-frontend-starter",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": { "dev": "vite", "build": "tsc -b && vite build", "preview": "vite preview" },
+  "dependencies": { "react": "^18.3.1", "react-dom": "^18.3.1", "axios": "^1.7.7", "react-hot-toast": "^2.4.1" },
+  "devDependencies": { "typescript": "^5.5.3", "vite": "^5.4.1" }
+}
