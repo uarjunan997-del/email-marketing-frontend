@@ -1,54 +1,345 @@
+import React from 'react';
+import { motion } from 'framer-motion';
 import { useDashboardData, statusVariant } from '@hooks/useDashboardData';
-import { useEffect, useMemo, useState } from 'react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts';
 import DashboardStats from '@components/DashboardStats';
-import ChartWidget from '@components/ChartWidget';
+import { Card } from '@components/atoms/Card';
 import { Badge } from '@components/atoms/Badge';
 import { Button } from '@components/atoms/Button';
+import { 
+  Mail, 
+  Users, 
+  TrendingUp, 
+  Eye, 
+  MousePointer, 
+  AlertTriangle,
+  Plus,
+  ExternalLink
+} from 'lucide-react';
 
 const DashboardPage: React.FC = () => {
-	const { stats, campaigns, weekly, lists, engagement, alerts, loading } = useDashboardData();
-	const [isDark,setIsDark] = useState<boolean>(false);
-	// Watch for theme changes dynamically
-	useEffect(()=>{ const mql = window.matchMedia('(prefers-color-scheme: dark)'); const update=()=>setIsDark(document.documentElement.classList.contains('dark') || mql.matches); update(); mql.addEventListener('change',update); const obs = new MutationObserver(update); obs.observe(document.documentElement,{attributes:true, attributeFilter:['class']}); return ()=>{ mql.removeEventListener('change',update); obs.disconnect(); }; },[]);
-	const colors = useMemo(()=>({
-		primary: isDark ? '#40c8ff' : '#0baeea',
-		secondary: isDark ? '#818cf8' : '#6366f1',
-		bar: isDark ? '#0baeea' : '#0baeea',
-		pie: ['#0baeea','#6366f1','#ef4444','#f59e0b','#64748b']
-	}),[isDark]);
-	return (
-		<div className="space-y-8" data-testid="dashboard-page">
-			<DashboardStats stats={stats} loading={loading} />
-			<div className="grid gap-4 md:grid-cols-3">
-				<div className="md:col-span-2 space-y-4">
-					<div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-						<div className="flex items-center justify-between mb-3"><h3 className="text-sm font-semibold tracking-wide">Recent Campaigns</h3><Button onClick={()=>{}}>View All</Button></div>
-						<div className="overflow-x-auto">
-							<table className="min-w-full text-xs md:text-sm">
-								<thead className="text-left bg-gray-100 dark:bg-gray-800"><tr><th className="px-3 py-2 font-medium">Name</th><th className="px-3 py-2 font-medium">Status</th><th className="px-3 py-2 font-medium whitespace-nowrap">Sent</th><th className="px-3 py-2 font-medium whitespace-nowrap">Open %</th><th className="px-3 py-2 font-medium whitespace-nowrap">Click %</th></tr></thead>
-								<tbody>{campaigns.map(c=> <tr key={c.id} className="border-t border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900"><td className="px-3 py-2 font-medium">{c.name}</td><td className="px-3 py-2"><Badge variant={statusVariant(c.status)}>{c.status}</Badge></td><td className="px-3 py-2">{c.sent || '-'}</td><td className="px-3 py-2">{c.openRate? c.openRate+'%':'-'}</td><td className="px-3 py-2">{c.clickRate? c.clickRate+'%':'-'}</td></tr>)}</tbody>
-							</table>
-						</div>
-					</div>
-					<div className="grid gap-4 md:grid-cols-2">
-						<ChartWidget title="Weekly Sends vs Opens" loading={loading}>{!loading && <ResponsiveContainer width="100%" height={220}><LineChart data={weekly}><CartesianGrid strokeDasharray="3 3" stroke="#9ca3af33" /><XAxis dataKey="date" stroke="currentColor" fontSize={12} /><YAxis stroke="currentColor" fontSize={12} /><Tooltip /><Line type="monotone" dataKey="sent" stroke={colors.primary} strokeWidth={2} /><Line type="monotone" dataKey="opens" stroke={colors.secondary} strokeWidth={2} /></LineChart></ResponsiveContainer>}</ChartWidget>
-						<ChartWidget title="Top Lists by Contacts" loading={loading}>{!loading && <ResponsiveContainer width="100%" height={220}><BarChart data={lists}><CartesianGrid strokeDasharray="3 3" stroke="#9ca3af33" /><XAxis dataKey="name" stroke="currentColor" fontSize={12} /><YAxis stroke="currentColor" fontSize={12} /><Tooltip /><Bar dataKey="contacts" fill={colors.bar} radius={[4,4,0,0]} /></BarChart></ResponsiveContainer>}</ChartWidget>
-					</div>
-				</div>
-				<div className="space-y-4">
-					<ChartWidget title="Engagement Mix" loading={loading}>{!loading && <ResponsiveContainer width="100%" height={260}><PieChart><Pie data={engagement} dataKey="value" nameKey="name" outerRadius={90} innerRadius={40} stroke="none" label>{engagement.map((e,i)=><Cell key={e.name} fill={colors.pie[i % colors.pie.length]} />)}</Pie><Legend wrapperStyle={{fontSize:12}} /></PieChart></ResponsiveContainer>}</ChartWidget>
-					<div className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4" aria-labelledby="alerts-heading">
-						<h3 id="alerts-heading" className="text-sm font-semibold tracking-wide mb-2">Notifications</h3>
-						<div aria-live="polite" aria-atomic="true">
-							{loading && <div className="space-y-2" role="status"><div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" /><div className="h-4 w-1/2 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" /></div>}
-							{!loading && alerts.length === 0 && <p className="text-xs text-gray-500">No alerts 🎉</p>}
-							{!loading && alerts.length > 0 && <ul className="space-y-2 text-xs list-disc pl-4">{alerts.map((a,i)=><li key={i}>{a}</li>)}</ul>}
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	);
+  const { stats, campaigns, weekly, lists, engagement, alerts, loading } = useDashboardData();
+
+  // Enhanced stats with icons
+  const enhancedStats = stats.map(stat => ({
+    ...stat,
+    icon: stat.id === 'sent' ? <Mail className="w-5 h-5" /> :
+          stat.id === 'open' ? <Eye className="w-5 h-5" /> :
+          stat.id === 'click' ? <MousePointer className="w-5 h-5" /> :
+          stat.id === 'contacts' ? <Users className="w-5 h-5" /> :
+          <TrendingUp className="w-5 h-5" />
+  }));
+
+  const chartColors = {
+    primary: '#6366f1',
+    secondary: '#8b5cf6',
+    accent: '#10b981',
+    warning: '#f59e0b',
+    danger: '#ef4444'
+  };
+
+  const pieColors = [chartColors.primary, chartColors.secondary, chartColors.danger, chartColors.warning, '#64748b'];
+
+  return (
+    <div className="space-y-8" data-testid="dashboard-page">
+      {/* Welcome section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="relative"
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-display font-bold text-3xl text-neutral-900 dark:text-neutral-100 mb-2">
+              Good morning! 👋
+            </h1>
+            <p className="text-neutral-600 dark:text-neutral-400">
+              Here's what's happening with your campaigns today
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            icon={<Plus className="w-4 h-4" />}
+            className="hidden sm:flex"
+          >
+            New Campaign
+          </Button>
+        </div>
+      </motion.div>
+
+      {/* Stats grid */}
+      <DashboardStats stats={enhancedStats} loading={loading} />
+
+      {/* Main content grid */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Left column - Charts */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Weekly performance chart */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.6 }}
+          >
+            <Card variant="gradient" className="relative overflow-hidden">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="font-semibold text-lg text-neutral-900 dark:text-neutral-100">
+                    Weekly Performance
+                  </h3>
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                    Emails sent vs opens over the last 7 days
+                  </p>
+                </div>
+                <Button variant="ghost" size="sm" icon={<ExternalLink className="w-4 h-4" />}>
+                  View Details
+                </Button>
+              </div>
+              
+              <div className="h-64">
+                {loading ? (
+                  <div className="h-full shimmer rounded-xl bg-neutral-100 dark:bg-neutral-800" />
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={weekly}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.3} />
+                      <XAxis 
+                        dataKey="date" 
+                        stroke="currentColor" 
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis 
+                        stroke="currentColor" 
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <Tooltip 
+                        contentStyle={{
+                          background: 'rgba(255, 255, 255, 0.95)',
+                          border: 'none',
+                          borderRadius: '12px',
+                          boxShadow: '0 10px 40px rgba(0, 0, 0, 0.1)',
+                          backdropFilter: 'blur(10px)'
+                        }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="sent" 
+                        stroke={chartColors.primary}
+                        strokeWidth={3}
+                        dot={{ fill: chartColors.primary, strokeWidth: 2, r: 4 }}
+                        activeDot={{ r: 6, stroke: chartColors.primary, strokeWidth: 2 }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="opens" 
+                        stroke={chartColors.secondary}
+                        strokeWidth={3}
+                        dot={{ fill: chartColors.secondary, strokeWidth: 2, r: 4 }}
+                        activeDot={{ r: 6, stroke: chartColors.secondary, strokeWidth: 2 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </Card>
+          </motion.div>
+
+          {/* Recent campaigns */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.6 }}
+          >
+            <Card variant="gradient">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-semibold text-lg text-neutral-900 dark:text-neutral-100">
+                  Recent Campaigns
+                </h3>
+                <Button variant="ghost" size="sm">
+                  View All
+                </Button>
+              </div>
+              
+              <div className="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800">
+                <table className="min-w-full">
+                  <thead className="bg-neutral-50 dark:bg-neutral-800/50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                        Campaign
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                        Sent
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                        Open Rate
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                        Click Rate
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-neutral-900 divide-y divide-neutral-200 dark:divide-neutral-800">
+                    {campaigns.map((campaign, index) => (
+                      <motion.tr
+                        key={campaign.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.7 + index * 0.1, duration: 0.3 }}
+                        className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors"
+                      >
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-neutral-900 dark:text-neutral-100">
+                            {campaign.name}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant={statusVariant(campaign.status)}>
+                            {campaign.status}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">
+                          {campaign.sent.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">
+                          {campaign.openRate}%
+                        </td>
+                        <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">
+                          {campaign.clickRate}%
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </motion.div>
+        </div>
+
+        {/* Right column - Sidebar widgets */}
+        <div className="space-y-6">
+          {/* Engagement pie chart */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.6 }}
+          >
+            <Card variant="gradient">
+              <h3 className="font-semibold text-lg text-neutral-900 dark:text-neutral-100 mb-4">
+                Engagement Mix
+              </h3>
+              <div className="h-64">
+                {loading ? (
+                  <div className="h-full shimmer rounded-xl bg-neutral-100 dark:bg-neutral-800" />
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={engagement}
+                        dataKey="value"
+                        nameKey="name"
+                        outerRadius={80}
+                        innerRadius={40}
+                        stroke="none"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        labelLine={false}
+                      >
+                        {engagement.map((entry, index) => (
+                          <Cell 
+                            key={entry.name} 
+                            fill={pieColors[index % pieColors.length]} 
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </Card>
+          </motion.div>
+
+          {/* Alerts */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.6 }}
+          >
+            <Card variant="gradient">
+              <div className="flex items-center gap-2 mb-4">
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+                <h3 className="font-semibold text-lg text-neutral-900 dark:text-neutral-100">
+                  Notifications
+                </h3>
+              </div>
+              
+              <div className="space-y-3">
+                {loading ? (
+                  <div className="space-y-2">
+                    <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded shimmer" />
+                    <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded shimmer w-3/4" />
+                  </div>
+                ) : alerts.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 bg-accent-100 dark:bg-accent-900/40 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <span className="text-2xl">🎉</span>
+                    </div>
+                    <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                      All systems running smoothly!
+                    </p>
+                  </div>
+                ) : (
+                  alerts.map((alert, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1, duration: 0.3 }}
+                      className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-xl"
+                    >
+                      <p className="text-xs text-amber-800 dark:text-amber-200">
+                        {alert}
+                      </p>
+                    </motion.div>
+                  ))
+                )}
+              </div>
+            </Card>
+          </motion.div>
+
+          {/* Quick actions */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8, duration: 0.6 }}
+          >
+            <Card variant="gradient">
+              <h3 className="font-semibold text-lg text-neutral-900 dark:text-neutral-100 mb-4">
+                Quick Actions
+              </h3>
+              <div className="space-y-3">
+                <Button variant="outline" className="w-full justify-start" icon={<Mail className="w-4 h-4" />}>
+                  Create Campaign
+                </Button>
+                <Button variant="outline" className="w-full justify-start" icon={<Users className="w-4 h-4" />}>
+                  Import Contacts
+                </Button>
+                <Button variant="outline" className="w-full justify-start" icon={<TrendingUp className="w-4 h-4" />}>
+                  View Analytics
+                </Button>
+              </div>
+            </Card>
+          </motion.div>
+        </div>
+      </div>
+    </div>
+  );
 };
+
 export default DashboardPage;

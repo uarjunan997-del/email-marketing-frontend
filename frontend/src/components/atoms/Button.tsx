@@ -1,27 +1,73 @@
 import React from 'react';
 import clsx from 'clsx';
+import { motion } from 'framer-motion';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'accent' | 'outline';
+  size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
+  icon?: React.ReactNode;
+  iconPosition?: 'left' | 'right';
 }
 
-const variantStyles: Record<string,string> = {
-  primary: 'bg-primary-600 hover:bg-primary-700 text-white disabled:bg-primary-300',
-  secondary: 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100',
-  ghost: 'hover:bg-gray-100 dark:hover:bg-gray-800',
-  danger: 'bg-red-600 hover:bg-red-700 text-white disabled:bg-red-300'
+const variantStyles: Record<string, string> = {
+  primary: 'btn-gradient text-white shadow-lg hover:shadow-glow disabled:opacity-50 disabled:cursor-not-allowed',
+  secondary: 'btn-secondary text-white shadow-lg hover:shadow-glow-secondary disabled:opacity-50',
+  accent: 'bg-gradient-to-r from-accent-500 to-accent-600 text-white shadow-lg hover:shadow-lg hover:from-accent-600 hover:to-accent-700 disabled:opacity-50',
+  ghost: 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100',
+  outline: 'border-2 border-primary-500 text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-950 disabled:opacity-50',
+  danger: 'bg-red-500 hover:bg-red-600 text-white shadow-lg disabled:opacity-50'
 };
 
-export const Button: React.FC<ButtonProps> = ({variant='primary', className, children, loading, disabled, ...rest}) => (
-  <button
-    className={clsx('inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 ring-offset-2 ring-primary-500 disabled:cursor-not-allowed', variantStyles[variant], className)}
-    disabled={disabled || loading}
-    {...rest}
-  >
-    {loading && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/60 border-t-transparent" aria-hidden/>}
-    <span>{children}</span>
-  </button>
-);
+const sizeStyles: Record<string, string> = {
+  sm: 'px-3 py-1.5 text-sm rounded-lg',
+  md: 'px-6 py-2.5 text-sm rounded-xl',
+  lg: 'px-8 py-3 text-base rounded-xl'
+};
+
+export const Button: React.FC<ButtonProps> = ({
+  variant = 'primary',
+  size = 'md',
+  className,
+  children,
+  loading,
+  disabled,
+  icon,
+  iconPosition = 'left',
+  ...rest
+}) => {
+  const isDisabled = disabled || loading;
+
+  return (
+    <motion.button
+      whileHover={!isDisabled ? { scale: 1.02 } : {}}
+      whileTap={!isDisabled ? { scale: 0.98 } : {}}
+      className={clsx(
+        'inline-flex items-center justify-center gap-2 font-medium transition-all duration-300 focus-ring',
+        variantStyles[variant],
+        sizeStyles[size],
+        isDisabled && 'cursor-not-allowed',
+        className
+      )}
+      disabled={isDisabled}
+      {...rest}
+    >
+      {loading && (
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+        />
+      )}
+      {!loading && icon && iconPosition === 'left' && (
+        <span className="w-4 h-4">{icon}</span>
+      )}
+      <span>{children}</span>
+      {!loading && icon && iconPosition === 'right' && (
+        <span className="w-4 h-4">{icon}</span>
+      )}
+    </motion.button>
+  );
+};
 
 export default Button;
