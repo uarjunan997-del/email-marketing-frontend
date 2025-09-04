@@ -1,0 +1,6 @@
+import React from 'react';
+import clsx from 'clsx';
+export interface StatItem { id: string; label: string; value: number | string; delta?: number; help?: string; }
+export interface DashboardStatsProps { stats: StatItem[]; loading?: boolean; }
+export const DashboardStats: React.FC<DashboardStatsProps> = ({stats, loading}) => { if(loading){ return (<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{Array.from({length:4}).map((_,i)=><div key={i} className="h-28 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900 animate-pulse" />)}</div> ); } return (<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{stats.map(s=>{ const positive = (s.delta||0) >= 0; return (<div key={s.id} className="rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4 flex flex-col justify-between"><div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 font-medium">{s.label}</div><div className="text-2xl font-semibold mt-1">{s.value}</div>{s.delta != null && <div className={clsx('text-xs font-medium mt-2', positive ? 'text-emerald-600 dark:text-emerald-400':'text-red-600 dark:text-red-400')}>{positive?'+':''}{s.delta}% vs last period</div>}</div> ); })}</div> ); };
+export default DashboardStats;

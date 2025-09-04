@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import toast from 'react-hot-toast';
+import { resolveApiBase } from '@utils/apiClient';
 
-interface User { id: string; email: string; firstName?: string; lastName?: string; planTier?: string; currency?: string; locale?: string; }
+interface User { id: string; username?: string; email: string; firstName?: string; lastName?: string; roles?: string[]; planTier?: string; currency?: string; locale?: string; }
 interface AuthContextType {
   user: User | null; token: string | null; loading: boolean;
   login: (username: string, password: string) => Promise<void>;
@@ -23,13 +24,23 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({ children }) => {
     setLoading(false);
   },[]);
 
+  const apiBase = resolveApiBase();
+
   const login = async (username: string, password: string) => {
     setLoading(true);
     try {
-      const res = await fetch(import.meta.env.VITE_API_BASE_URL + '/auth/login',{method:'POST', headers:{'Content-Type':'application/json','X-Auth-Attempt':'true'}, body: JSON.stringify({username,password})});
+      const res = await fetch(apiBase + '/auth/login',{method:'POST', headers:{'Content-Type':'application/json','X-Auth-Attempt':'true'}, body: JSON.stringify({username,password})});
       if(!res.ok) throw new Error('Login failed');
       const data = await res.json();
-      setToken(data.token); setUser(data.user); localStorage.setItem('token', data.token); localStorage.setItem('user', JSON.stringify(data.user));
+      const userObj: User = data.user ? data.user : {
+        id: String(data.id),
+        username: data.username,
+        email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        roles: data.roles ? Array.from(data.roles) : undefined
+      };
+      setToken(data.token); setUser(userObj); localStorage.setItem('token', data.token); localStorage.setItem('user', JSON.stringify(userObj));
       toast.success('Logged in');
     } finally { setLoading(false); }
   };
@@ -37,10 +48,18 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({ children }) => {
   const register = async (email:string,password:string, firstName?:string,lastName?:string) => {
     setLoading(true);
     try {
-      const res = await fetch(import.meta.env.VITE_API_BASE_URL + '/auth/register',{method:'POST', headers:{'Content-Type':'application/json','X-Auth-Attempt':'true'}, body: JSON.stringify({email,password, firstName,lastName})});
+      const res = await fetch(apiBase + '/auth/register',{method:'POST', headers:{'Content-Type':'application/json','X-Auth-Attempt':'true'}, body: JSON.stringify({email,password, firstName,lastName})});
       if(!res.ok) throw new Error('Registration failed');
       const data = await res.json();
-      setToken(data.token); setUser(data.user); localStorage.setItem('token', data.token); localStorage.setItem('user', JSON.stringify(data.user));
+      const userObj: User = data.user ? data.user : {
+        id: String(data.id),
+        username: data.username,
+        email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        roles: data.roles ? Array.from(data.roles) : undefined
+      };
+      setToken(data.token); setUser(userObj); localStorage.setItem('token', data.token); localStorage.setItem('user', JSON.stringify(userObj));
       toast.success('Account created');
     } finally { setLoading(false); }
   };

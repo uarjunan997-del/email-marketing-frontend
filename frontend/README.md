@@ -1,34 +1,77 @@
-# Frontend Starter (React + Vite + TypeScript)
+# Email Marketing SaaS Frontend (Phase 1 MVP)
 
-Included concepts:
-- Auth context with persistent login & session expiry handling (`AuthContext.tsx`).
-- Preferences context for locale/currency bootstrap.
-- Central axios instance with interceptors (`utils/api.ts`).
-- Basic API call helper distinguishing auth vs general calls.
+Tech Stack:
+- React 18 + Vite + TypeScript
+- Tailwind CSS (dark mode via class)
+- React Router v6
+- React Hook Form + Zod validation
+- Recharts for charts
+- Unlayer Email Editor for template building
+
+## MVP Scope
+- Login / Register pages (hit `/auth/login` & `/auth/register`).
+- Protected application shell with sidebar, header & theme toggle.
+- Dashboard with sample weekly performance line chart.
+- Campaigns list placeholder table (stub data).
+- Template editor page with export HTML action.
+- Settings placeholder.
+- Atomic component structure (atoms / molecules / organisms) + feature folders scaffold.
+- Auth context with token persistence + interceptor-based logout on 401/403.
+- Environment config via `import.meta.env`.
 
 ## Environment
-
-Create `.env` or use Vite env variables:
+Copy `.env.example` to `.env` and adjust:
 ```
 VITE_API_BASE_URL=http://localhost:8080
+VITE_UNLAYER_PROJECT_ID=
+VITE_TEMPLATES_BACKEND=local
 ```
 
-## Usage
-
-Wrap app root:
+## Scripts
 ```
-<AuthProvider><PreferencesProvider><App/></PreferencesProvider></AuthProvider>
-```
-
-Call login:
-```
-const { login } = useAuth();
-await login(username, password);
+npm install
+npm run dev
+npm run build
+npm run preview
+npm run lint
 ```
 
-API helper auto-adds `Authorization` header and redirects on 401/403.
+## Project Structure
+```
+src/
+	api/          # API wrappers (axios based)
+	components/   # atomic design (atoms/molecules/organisms)
+	contexts/     # shared contexts (Auth, etc.)
+	features/     # feature modules (campaigns, contacts, analytics)
+	hooks/        # custom hooks
+	layouts/      # layout shells (AppLayout)
+	pages/        # route-level pages
+	types/        # global ambient types
+	utils/        # helpers (api.ts)
+```
 
-## Customization
-- Add route guarding with React Router `Navigate` if `!isLoggedIn`.
-- Integrate feature gating by checking `user.subscription.planType` from user object.
-- Extend `apiCall` to include retry / backoff or instrumentation.
+## Adding A New Form
+Use `react-hook-form` + Zod:
+```
+const schema = z.object({ name: z.string().min(2) });
+type Form = z.infer<typeof schema>;
+const { register, handleSubmit, formState:{errors} } = useForm<Form>({ resolver: zodResolver(schema) });
+```
+
+## Theming
+`ThemeToggle` toggles a `dark` class on `<html>` and persists preference in `localStorage`.
+
+## Next Steps (Recommended)
+- Replace stubbed campaign data with real backend endpoints.
+- Implement contacts CRUD + segmentation tags.
+- Integrate analytics endpoints for charts (open rate, CTR, bounce rate, unsubscribes).
+- Add template gallery & versioning.
+- Add role/plan gating UI affordances (hide/disable premium-only actions).
+- Unit tests (Jest + React Testing Library) & component storybook.
+- Performance budgets & bundle analysis.
+
+## Accessibility
+Baseline semantic HTML + focus styles; run an audit (axe / Lighthouse) before production hardening.
+
+## License
+Internal template – add license prior to public distribution.
