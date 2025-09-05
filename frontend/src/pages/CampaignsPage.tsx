@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '@components/atoms/Card';
 import { Button } from '@components/atoms/Button';
 import { Badge } from '@components/atoms/Badge';
@@ -102,6 +102,7 @@ const statusConfig = {
 };
 
 export const CampaignsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
 
@@ -133,6 +134,7 @@ export const CampaignsPage: React.FC = () => {
         <Button
           icon={<Plus className="w-4 h-4" />}
           size="lg"
+          onClick={() => navigate('/campaigns/new')}
         >
           New Campaign
         </Button>

@@ -8,6 +8,7 @@ import CampaignsPage from '@pages/CampaignsPage';
 import TemplateGalleryPage from '@pages/templates';
 import TemplateEditorPage from '@pages/templates/EditorPage';
 import SettingsPage from '@pages/SettingsPage';
+import CreateCampaignPage from '@pages/campaigns/CreateCampaignPage';
 import LoginPage from '@pages/LoginPage';
 import RegisterPage from '@pages/RegisterPage';
 
@@ -43,6 +44,7 @@ export const App: React.FC = () => {
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="campaigns" element={<CampaignsPage />} />
+              <Route path="campaigns/new" element={<CreateCampaignPage />} />
               <Route path="templates" element={<TemplateGalleryPage />} />
               <Route path="templates/:templateId" element={<TemplateEditorPage />} />
               <Route path="settings" element={<SettingsPage />} />
