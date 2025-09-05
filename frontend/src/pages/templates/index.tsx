@@ -15,7 +15,8 @@ import {
   Trash2, 
   Eye,
   Calendar,
-  Tag
+  Tag,
+  Mail
 } from 'lucide-react';
 
 const TemplateGalleryPage: React.FC = () => {
