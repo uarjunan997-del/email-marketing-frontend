@@ -16,6 +16,7 @@ import EmailPreviewModal from '@components/ui/EmailPreviewModal';
 import ConfettiAnimation from '@components/ui/ConfettiAnimation';
 
 import { createCampaign, CreateCampaignInput } from '@api/campaigns';
+import { listSegments, listContacts } from '@api/contacts';
 import { useTemplateManager } from '@hooks/useTemplateManager';
 import { 
   ArrowLeft, 
@@ -67,6 +68,7 @@ export const CreateCampaignPage: React.FC = () => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [segments,setSegments] = useState<{value:string; label:string; count:number}[]>([]);
 
   const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm<CampaignForm>({
     resolver: zodResolver(schema)
@@ -74,20 +76,30 @@ export const CreateCampaignPage: React.FC = () => {
 
   const watchedValues = watch();
 
-  // Mock recipient count calculation based on segment
-  useEffect(() => {
-    const segment = watchedValues.segment;
-    if (segment) {
-      // Simulate API call to get recipient count
-      const counts: Record<string, number> = {
-        'all': 2847,
-        'new-subscribers': 1234,
-        'active-users': 1876,
-        'vip-customers': 456
-      };
-      setRecipientCount(counts[segment] || 2847);
-    }
-  }, [watchedValues.segment]);
+  useEffect(()=>{ (async()=>{
+    try {
+      const segs = await listSegments();
+      // map to UI shape
+      const mapped = segs.map(s=>({ value: s.value, label: s.name, count: s.count }));
+      setSegments(mapped);
+      // default select 'all' if nothing chosen
+      if(!watch('segment') && mapped.length>0){ setValue('segment', mapped[0].value); }
+    } catch { /* ignore */ }
+  })(); },[]);
+
+  // Replace mock recipient count logic with live count
+  useEffect(()=>{ (async()=>{
+    const seg = watch('segment');
+    try {
+      if(seg && seg !== 'all'){
+        const contacts = await listContacts(seg);
+        setRecipientCount(contacts.length);
+      } else {
+        const contacts = await listContacts();
+        setRecipientCount(contacts.length);
+      }
+    } catch { /* ignore */ }
+  })(); },[watch('segment')]);
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
@@ -267,14 +279,8 @@ export const CreateCampaignPage: React.FC = () => {
                   <Users className="w-5 h-5 text-primary-500" />
                   Select Audience
                 </h3>
-                
                 <div className="space-y-3">
-                  {[
-                    { value: 'all', label: 'All Subscribers', count: '2,847 contacts' },
-                    { value: 'new-subscribers', label: 'New Subscribers', count: '1,234 contacts' },
-                    { value: 'active-users', label: 'Active Users', count: '1,876 contacts' },
-                    { value: 'vip-customers', label: 'VIP Customers', count: '456 contacts' }
-                  ].map((option) => (
+                  {segments.map(option => (
                     <motion.label
                       key={option.value}
                       whileHover={{ scale: 1.01 }}
@@ -292,12 +298,8 @@ export const CreateCampaignPage: React.FC = () => {
                           className="w-4 h-4 text-primary-600 focus:ring-primary-500"
                         />
                         <div>
-                          <p className="font-medium text-neutral-900 dark:text-neutral-100">
-                            {option.label}
-                          </p>
-                          <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                            {option.count}
-                          </p>
+                          <p className="font-medium text-neutral-900 dark:text-neutral-100">{option.label}</p>
+                          <p className="text-sm text-neutral-600 dark:text-neutral-400">{option.count.toLocaleString()} contacts</p>
                         </div>
                       </div>
                     </motion.label>

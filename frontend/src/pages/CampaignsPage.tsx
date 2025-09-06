@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card } from '@components/atoms/Card';
@@ -20,96 +20,95 @@ import {
   Copy,
   Trash2
 } from 'lucide-react';
-
-interface Campaign {
-  id: string;
-  name: string;
-  status: 'Draft' | 'Scheduled' | 'Sending' | 'Sent' | 'Paused' | 'Error';
-  sent: number;
-  opens: number;
-  clicks: number;
-  openRate: number;
-  clickRate: number;
-  scheduledAt?: string;
-  createdAt: string;
-  template: string;
-  audience: string;
-}
+import { listCampaigns, Campaign } from '../api/campaigns';
 
 const mockCampaigns: Campaign[] = [
   {
-    id: '1',
+    id: 1,
+    userId: 1,
     name: 'Welcome Series - Part 1',
-    status: 'Sent',
-    sent: 3200,
-    opens: 1312,
-    clicks: 289,
-    openRate: 41,
-    clickRate: 9,
+    status: 'SENT',
+    sentCount: 3200,
+    openCount: 1312,
+    clickCount: 289,
     createdAt: '2024-01-15',
-    template: 'Welcome Template',
-    audience: 'New Subscribers'
+    templateId: 1,
+    segment: 'New Subscribers'
   },
   {
-    id: '2',
+    id: 2,
+    userId: 1,
     name: 'September Product Launch',
-    status: 'Sending',
-    sent: 1800,
-    opens: 990,
-    clicks: 252,
-    openRate: 55,
-    clickRate: 14,
+    status: 'SENDING',
+    sentCount: 1800,
+    openCount: 990,
+    clickCount: 252,
     createdAt: '2024-01-14',
-    template: 'Product Launch',
-    audience: 'All Subscribers'
+    templateId: 2,
+    segment: 'All Subscribers'
   },
   {
-    id: '3',
+    id: 3,
+    userId: 1,
     name: 'Abandoned Cart Recovery',
-    status: 'Scheduled',
-    sent: 0,
-    opens: 0,
-    clicks: 0,
-    openRate: 0,
-    clickRate: 0,
+    status: 'SCHEDULED',
+    sentCount: 0,
+    openCount: 0,
+    clickCount: 0,
     scheduledAt: '2024-01-20T10:00:00Z',
     createdAt: '2024-01-13',
-    template: 'Cart Recovery',
-    audience: 'Cart Abandoners'
+    templateId: 3,
+    segment: 'Cart Abandoners'
   },
   {
-    id: '4',
+    id: 4,
+    userId: 1,
     name: 'Monthly Newsletter',
-    status: 'Draft',
-    sent: 0,
-    opens: 0,
-    clicks: 0,
-    openRate: 0,
-    clickRate: 0,
+    status: 'DRAFT',
+    sentCount: 0,
+    openCount: 0,
+    clickCount: 0,
     createdAt: '2024-01-12',
-    template: 'Newsletter Template',
-    audience: 'Newsletter Subscribers'
+    templateId: 4,
+    segment: 'Newsletter Subscribers'
   }
 ];
 
 const statusConfig = {
-  Draft: { variant: 'default' as const, color: 'text-neutral-600' },
-  Scheduled: { variant: 'warning' as const, color: 'text-amber-600' },
-  Sending: { variant: 'info' as const, color: 'text-blue-600' },
-  Sent: { variant: 'success' as const, color: 'text-accent-600' },
-  Paused: { variant: 'warning' as const, color: 'text-amber-600' },
-  Error: { variant: 'danger' as const, color: 'text-red-600' }
+  DRAFT: { variant: 'default' as const, color: 'text-neutral-600' },
+  REVIEW: { variant: 'warning' as const, color: 'text-amber-600' },
+  SCHEDULED: { variant: 'warning' as const, color: 'text-amber-600' },
+  SENDING: { variant: 'info' as const, color: 'text-blue-600' },
+  SENT: { variant: 'success' as const, color: 'text-accent-600' },
+  CANCELLED: { variant: 'danger' as const, color: 'text-red-600' }
 };
 
 export const CampaignsPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredCampaigns = mockCampaigns.filter(campaign => {
+  useEffect(() => {
+    const fetchCampaigns = async () => {
+      try {
+        const data = await listCampaigns();
+        setCampaigns(data);
+      } catch (error) {
+        console.error('Failed to fetch campaigns:', error);
+        // Fallback to mock data for now
+        setCampaigns(mockCampaigns);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCampaigns();
+  }, []);
+
+  const filteredCampaigns = campaigns.filter(campaign => {
     const matchesSearch = campaign.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         campaign.template.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         campaign.audience.toLowerCase().includes(searchQuery.toLowerCase());
+                         (campaign.segment && campaign.segment.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesStatus = !statusFilter || campaign.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -148,9 +147,9 @@ export const CampaignsPage: React.FC = () => {
         className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
       >
         {[
-          { label: 'Total Campaigns', value: mockCampaigns.length, icon: <Mail className="w-5 h-5" /> },
-          { label: 'Active', value: mockCampaigns.filter(c => c.status === 'Sending').length, icon: <Play className="w-5 h-5" /> },
-          { label: 'Scheduled', value: mockCampaigns.filter(c => c.status === 'Scheduled').length, icon: <Calendar className="w-5 h-5" /> },
+          { label: 'Total Campaigns', value: campaigns.length, icon: <Mail className="w-5 h-5" /> },
+          { label: 'Active', value: campaigns.filter(c => c.status === 'SENDING').length, icon: <Play className="w-5 h-5" /> },
+          { label: 'Scheduled', value: campaigns.filter(c => c.status === 'SCHEDULED').length, icon: <Calendar className="w-5 h-5" /> },
           { label: 'Avg Open Rate', value: '48%', icon: <TrendingUp className="w-5 h-5" /> }
         ].map((stat, index) => (
           <motion.div
@@ -198,12 +197,12 @@ export const CampaignsPage: React.FC = () => {
                 className="px-3 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-sm focus-ring"
               >
                 <option value="">All Status</option>
-                <option value="Draft">Draft</option>
-                <option value="Scheduled">Scheduled</option>
-                <option value="Sending">Sending</option>
-                <option value="Sent">Sent</option>
-                <option value="Paused">Paused</option>
-                <option value="Error">Error</option>
+                <option value="DRAFT">Draft</option>
+                <option value="REVIEW">Review</option>
+                <option value="SCHEDULED">Scheduled</option>
+                <option value="SENDING">Sending</option>
+                <option value="SENT">Sent</option>
+                <option value="CANCELLED">Cancelled</option>
               </select>
             </div>
           </div>
@@ -212,14 +211,46 @@ export const CampaignsPage: React.FC = () => {
 
       {/* Campaigns list */}
       <AnimatePresence mode="wait">
-        <motion.div
-          key={filteredCampaigns.length}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="space-y-4"
-        >
-          {filteredCampaigns.map((campaign, index) => (
+        {loading ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-4"
+          >
+            {[...Array(3)].map((_, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1, duration: 0.5 }}
+              >
+                <Card className="animate-pulse">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="h-6 bg-neutral-200 dark:bg-neutral-700 rounded mb-2"></div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        {[...Array(4)].map((_, i) => (
+                          <div key={i}>
+                            <div className="h-4 bg-neutral-200 dark:bg-neutral-700 rounded mb-1"></div>
+                            <div className="h-5 bg-neutral-200 dark:bg-neutral-700 rounded"></div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </motion.div>
+            ))}
+          </motion.div>
+        ) : (
+          <motion.div
+            key={filteredCampaigns.length}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="space-y-4"
+          >
+            {filteredCampaigns.map((campaign, index) => (
             <motion.div
               key={campaign.id}
               initial={{ opacity: 0, x: -20 }}
@@ -242,25 +273,25 @@ export const CampaignsPage: React.FC = () => {
                       <div>
                         <p className="text-neutral-500 dark:text-neutral-400">Template</p>
                         <p className="font-medium text-neutral-900 dark:text-neutral-100">
-                          {campaign.template}
+                          Template {campaign.templateId}
                         </p>
                       </div>
                       <div>
                         <p className="text-neutral-500 dark:text-neutral-400">Audience</p>
                         <p className="font-medium text-neutral-900 dark:text-neutral-100">
-                          {campaign.audience}
+                          {campaign.segment || 'All'}
                         </p>
                       </div>
                       <div>
                         <p className="text-neutral-500 dark:text-neutral-400">Sent</p>
                         <p className="font-medium text-neutral-900 dark:text-neutral-100">
-                          {campaign.sent.toLocaleString()}
+                          {campaign.sentCount?.toLocaleString() || 0}
                         </p>
                       </div>
                       <div>
                         <p className="text-neutral-500 dark:text-neutral-400">Open Rate</p>
                         <p className="font-medium text-neutral-900 dark:text-neutral-100">
-                          {campaign.openRate}%
+                          {(campaign.sentCount && campaign.openCount) ? ((campaign.openCount / campaign.sentCount) * 100).toFixed(1) : 0}%
                         </p>
                       </div>
                     </div>
@@ -288,7 +319,8 @@ export const CampaignsPage: React.FC = () => {
               </Card>
             </motion.div>
           ))}
-        </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {filteredCampaigns.length === 0 && !searchQuery && !statusFilter && (

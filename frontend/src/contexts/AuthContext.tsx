@@ -6,7 +6,7 @@ interface User { id: string; username?: string; email: string; firstName?: strin
 interface AuthContextType {
   user: User | null; token: string | null; loading: boolean;
   login: (username: string, password: string) => Promise<void>;
-  register: (email: string, password: string, firstName?: string, lastName?: string) => Promise<void>;
+  register: (username: string, email: string, password: string, firstName?: string, lastName?: string) => Promise<void>;
   logout: () => void;
 }
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,49 +19,56 @@ export const AuthProvider: React.FC<{children: ReactNode}> = ({ children }) => {
 
   useEffect(()=>{
     const t = localStorage.getItem('token');
-    const u = localStorage.getItem('user');
-    if(t && u){ setToken(t); setUser(JSON.parse(u)); }
-    setLoading(false);
+    if(t){
+      setToken(t);
+      // attempt to load profile silently
+      fetchProfile(t).finally(()=> setLoading(false));
+    } else {
+      setLoading(false);
+    }
   },[]);
 
   const apiBase = resolveApiBase();
 
+  const fetchProfile = async (tk: string) => {
+    try {
+      const res = await fetch(apiBase + '/api/auth/me', { headers: { 'Authorization': 'Bearer ' + tk }});
+      if(!res.ok) throw new Error('Profile load failed');
+      const data = await res.json();
+      const userObj: User = { id: String(data.id), username: data.username, email: data.email, roles: data.roles ? Array.from(data.roles) : undefined };
+      setUser(userObj); localStorage.setItem('user', JSON.stringify(userObj));
+    } catch {
+      // silent failure -> force logout
+      localStorage.removeItem('token'); localStorage.removeItem('user'); setToken(null); setUser(null);
+    }
+  };
+
   const login = async (username: string, password: string) => {
     setLoading(true);
     try {
-      const res = await fetch(apiBase + '/auth/login',{method:'POST', headers:{'Content-Type':'application/json','X-Auth-Attempt':'true'}, body: JSON.stringify({username,password})});
+      const res = await fetch(apiBase + '/api/auth/login',{method:'POST', headers:{'Content-Type':'application/json','X-Auth-Attempt':'true'}, body: JSON.stringify({username,password})});
       if(!res.ok) throw new Error('Login failed');
       const data = await res.json();
-      const userObj: User = data.user ? data.user : {
-        id: String(data.id),
-        username: data.username,
-        email: data.email,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        roles: data.roles ? Array.from(data.roles) : undefined
-      };
-      setToken(data.token); setUser(userObj); localStorage.setItem('token', data.token); localStorage.setItem('user', JSON.stringify(userObj));
+      if(!data.accessToken) throw new Error('No token in response');
+      setToken(data.accessToken); localStorage.setItem('token', data.accessToken);
+      await fetchProfile(data.accessToken);
       toast.success('Logged in');
-    } finally { setLoading(false); }
+    } catch(err:any){ toast.error(err.message || 'Login failed'); throw err; }
+    finally { setLoading(false); }
   };
 
-  const register = async (email:string,password:string, firstName?:string,lastName?:string) => {
+  const register = async (username: string, email:string,password:string, firstName?:string,lastName?:string) => {
     setLoading(true);
     try {
-      const res = await fetch(apiBase + '/auth/register',{method:'POST', headers:{'Content-Type':'application/json','X-Auth-Attempt':'true'}, body: JSON.stringify({email,password, firstName,lastName})});
+      const res = await fetch(apiBase + '/api/auth/register',{method:'POST', headers:{'Content-Type':'application/json','X-Auth-Attempt':'true'}, body: JSON.stringify({username, email,password, firstName,lastName})});
       if(!res.ok) throw new Error('Registration failed');
       const data = await res.json();
-      const userObj: User = data.user ? data.user : {
-        id: String(data.id),
-        username: data.username,
-        email: data.email,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        roles: data.roles ? Array.from(data.roles) : undefined
-      };
-      setToken(data.token); setUser(userObj); localStorage.setItem('token', data.token); localStorage.setItem('user', JSON.stringify(userObj));
+      if(!data.accessToken) throw new Error('No token in response');
+      setToken(data.accessToken); localStorage.setItem('token', data.accessToken);
+      await fetchProfile(data.accessToken);
       toast.success('Account created');
-    } finally { setLoading(false); }
+    } catch(err:any){ toast.error(err.message || 'Registration failed'); throw err; }
+    finally { setLoading(false); }
   };
 
   const logout = () => { setUser(null); setToken(null); localStorage.removeItem('token'); localStorage.removeItem('user'); toast.success('Logged out'); };

@@ -11,6 +11,7 @@ import { Mail, Lock, User, Zap, ArrowRight, Sparkles } from 'lucide-react';
 import GradientBlob from '@components/ui/GradientBlob';
 
 const schema = z.object({
+  username: z.string().min(3, 'Username must be at least 3 characters'),
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   firstName: z.string().min(1, 'First name is required'),
@@ -31,7 +32,7 @@ export const RegisterPage: React.FC = () => {
   const onSubmit = async (data: RegisterForm) => {
     setIsLoading(true);
     try {
-      await doRegister(data.email, data.password, data.firstName, data.lastName);
+      await doRegister(data.username, data.email, data.password, data.firstName, data.lastName);
       navigate('/dashboard');
     } finally {
       setIsLoading(false);
@@ -79,6 +80,21 @@ export const RegisterPage: React.FC = () => {
             </motion.div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
+              >
+                <Input
+                  label="Username"
+                  variant="floating"
+                  icon={<User className="w-4 h-4" />}
+                  error={errors.username?.message}
+                  {...register('username')}
+                  autoComplete="username"
+                />
+              </motion.div>
+
               <div className="grid grid-cols-2 gap-4">
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
