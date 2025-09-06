@@ -7,6 +7,7 @@ import DashboardPage from '@pages/dashboard';
 import CampaignsPage from '@pages/CampaignsPage';
 import TemplateGalleryPage from '@pages/templates';
 import TemplateEditorPage from '@pages/templates/EditorPage';
+import ContactsPage from '@pages/ContactsPage';
 import SettingsPage from '@pages/SettingsPage';
 import CreateCampaignPage from '@pages/campaigns/CreateCampaignPage';
 import LoginPage from '@pages/LoginPage';
@@ -45,6 +46,7 @@ export const App: React.FC = () => {
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="campaigns" element={<CampaignsPage />} />
               <Route path="campaigns/new" element={<CreateCampaignPage />} />
+              <Route path="contacts" element={<ContactsPage />} />
               <Route path="templates" element={<TemplateGalleryPage />} />
               <Route path="templates/:templateId" element={<TemplateEditorPage />} />
               <Route path="settings" element={<SettingsPage />} />
