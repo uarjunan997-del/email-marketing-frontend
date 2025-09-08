@@ -1,7 +1,9 @@
 {
   "dependencies": {
+    "@stomp/stompjs": "^7.1.1",
     "date-fns": "^4.1.0",
     "react-confetti": "^6.4.0",
-    "react-dropzone": "^14.3.8"
+    "react-dropzone": "^14.3.8",
+    "sockjs-client": "^1.6.1"
   }
 }
