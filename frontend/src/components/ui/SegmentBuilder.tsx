@@ -319,7 +319,7 @@ export const SegmentBuilder: React.FC<SegmentBuilderProps> = ({
               Preview
             </Button>
           </div>
-        </div>
+  </motion.div>
       )}
 
       {/* Empty State */}

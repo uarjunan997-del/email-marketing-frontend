@@ -1,4 +1,4 @@
-import { apiCall } from '../utils/api';
+import { apiCall, api } from '../utils/api';
 
 export interface Contact { 
   id: number; 
@@ -104,17 +104,13 @@ export const uploadImport = async (file: File, mapping?: string) => {
   const form = new FormData();
   form.append('file', file);
   if (mapping) form.append('mapping', mapping);
-  
-  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/contacts/import`, {
+
+  const res = await api.request({
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${localStorage.getItem('token')}`
-    },
-    body: form
+    url: '/contacts/import',
+  data: form
   });
-  
-  if (!response.ok) throw new Error('Upload failed');
-  return response.json();
+  return res.data;
 };
 
 export const listImportJobs = () => apiCall<ImportJob[]>('GET', '/contacts/imports');
