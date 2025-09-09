@@ -2,7 +2,10 @@
   "dependencies": {
     "@stomp/stompjs": "^7.1.1",
     "date-fns": "^4.1.0",
+    "html2canvas": "^1.4.1",
     "react-confetti": "^6.4.0",
+    "react-dnd": "^16.0.1",
+    "react-dnd-html5-backend": "^16.0.1",
     "react-dropzone": "^14.3.8",
     "sockjs-client": "^1.6.1"
   }
