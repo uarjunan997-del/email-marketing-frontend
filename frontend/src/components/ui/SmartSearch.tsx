@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@components/atoms/Input';
 import { Badge } from '@components/atoms/Badge';
@@ -29,6 +29,7 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({
   loading
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState<'bottom' | 'top'>('bottom');
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -38,6 +39,22 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({
     ...suggestions.map(s => ({ type: 'suggestion', value: s }))
   ].slice(0, 8);
 
+  // Smart position detection - only show above if there's insufficient space below
+  const updateDropdownPosition = useCallback(() => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const spaceBelow = viewportHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const dropdownHeight = 280; // Estimated dropdown height
+      
+      // Only show above if there's insufficient space below AND enough space above
+      const shouldShowAbove = spaceBelow < dropdownHeight && spaceAbove > dropdownHeight;
+      
+      setDropdownPosition(shouldShowAbove ? 'top' : 'bottom');
+    }
+  }, []);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -46,7 +63,10 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -126,7 +146,14 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({
             setIsOpen(true);
             setHighlightedIndex(-1);
           }}
-          onFocus={() => setIsOpen(true)}
+          onFocus={() => {
+            updateDropdownPosition();
+            setIsOpen(true);
+          }}
+          onClick={() => {
+            updateDropdownPosition();
+            if (!isOpen) setIsOpen(true);
+          }}
           onKeyDown={handleKeyDown}
           className="pr-10"
         />
@@ -148,11 +175,27 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({
       <AnimatePresence>
         {isOpen && (value || allSuggestions.length > 0) && (
           <motion.div
-            initial={{ opacity: 0, y: -10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+            initial={{ 
+              opacity: 0, 
+              y: dropdownPosition === 'bottom' ? -10 : 10, 
+              scale: 0.95 
+            }}
+            animate={{ 
+              opacity: 1, 
+              y: 0, 
+              scale: 1 
+            }}
+            exit={{ 
+              opacity: 0, 
+              y: dropdownPosition === 'bottom' ? -10 : 10, 
+              scale: 0.95 
+            }}
             transition={{ duration: 0.2 }}
-            className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800 z-50 overflow-hidden"
+            className={`absolute left-0 right-0 bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800 z-50 overflow-hidden ${
+              dropdownPosition === 'bottom' 
+                ? 'top-full mt-2' 
+                : 'bottom-full mb-2'
+            }`}
           >
             {/* Quick filters */}
             {value && (

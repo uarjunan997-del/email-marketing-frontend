@@ -2,8 +2,9 @@ import React from 'react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 
-export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'accent' | 'gradient';
+// Use motion span props to avoid onDrag type incompatibilities
+export interface BadgeProps extends Omit<React.ComponentProps<typeof motion.span>, 'ref'> {
+  variant?: 'default' | 'success' | 'warning' | 'danger' | 'info' | 'accent' | 'gradient' | 'outline';
   size?: 'sm' | 'md' | 'lg';
   pulse?: boolean;
 }
@@ -15,7 +16,8 @@ const variantStyles: Record<string, string> = {
   danger: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
   info: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
   accent: 'bg-secondary-100 text-secondary-700 dark:bg-secondary-900/40 dark:text-secondary-300',
-  gradient: 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-glow'
+  gradient: 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-glow',
+  outline: 'border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 bg-transparent'
 };
 
 const sizeStyles: Record<string, string> = {

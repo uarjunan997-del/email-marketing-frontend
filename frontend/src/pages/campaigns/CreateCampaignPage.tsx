@@ -92,11 +92,11 @@ export const CreateCampaignPage: React.FC = () => {
     const seg = watch('segment');
     try {
       if(seg && seg !== 'all'){
-        const contacts = await listContacts(seg);
-        setRecipientCount(contacts.length);
+        const data = await listContacts({ segment: seg });
+        setRecipientCount(data.total);
       } else {
-        const contacts = await listContacts();
-        setRecipientCount(contacts.length);
+        const data = await listContacts();
+        setRecipientCount(data.total);
       }
     } catch { /* ignore */ }
   })(); },[watch('segment')]);

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, type Transition } from 'framer-motion';
 import { Sidebar } from '@components/organisms/Sidebar';
 import { ThemeToggle } from '@components/molecules/ThemeToggle';
 import { useAuth } from '@contexts/AuthContext';
@@ -14,7 +14,7 @@ const pageVariants = {
   out: { opacity: 0, y: -20 }
 };
 
-const pageTransition = {
+const pageTransition: Transition = {
   type: 'tween',
   ease: 'anticipate',
   duration: 0.4

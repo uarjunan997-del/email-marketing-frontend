@@ -51,12 +51,12 @@ export const ContactTable: React.FC<ContactTableProps> = ({
   };
 
   const sortedContacts = [...contacts].sort((a, b) => {
-    let aValue = a[sortField] || '';
-    let bValue = b[sortField] || '';
+    let aValue: any = (a as any)[sortField] ?? '';
+    let bValue: any = (b as any)[sortField] ?? '';
     
     if (sortField === 'createdAt') {
-      aValue = new Date(aValue).getTime();
-      bValue = new Date(bValue).getTime();
+      aValue = new Date(aValue as any).getTime();
+      bValue = new Date(bValue as any).getTime();
     }
     
     if (typeof aValue === 'string') {

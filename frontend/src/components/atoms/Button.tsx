@@ -2,7 +2,8 @@ import React from 'react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 
-export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+// Extend motion.button props to match framer's typing
+export interface ButtonProps extends Omit<React.ComponentProps<typeof motion.button>, 'ref'> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'accent' | 'outline';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
@@ -25,7 +26,7 @@ const sizeStyles: Record<string, string> = {
   lg: 'px-8 py-3 text-base rounded-xl'
 };
 
-export const Button: React.FC<ButtonProps> = ({
+export const Button: React.FC<ButtonProps & { children?: React.ReactNode }> = ({
   variant = 'primary',
   size = 'md',
   className,

@@ -8,22 +8,33 @@ import { Button } from '@components/atoms/Button';
 import { Badge } from '@components/atoms/Badge';
 import { Input } from '@components/atoms/Input';
 import ContactTable from '@components/contacts/ContactTable';
+import { VirtualizedContactList } from '@components/contacts/VirtualizedContactList';
 import ContactCards from '@components/contacts/ContactCards';
 import BulkActionToolbar from '@components/ui/BulkActionToolbar';
 import SmartSearch from '@components/ui/SmartSearch';
+import SegmentBuilder from '@components/ui/SegmentBuilder';
+import AdvancedFilters, { AdvancedFilter } from '@components/ui/AdvancedFilters';
+import AddToSegmentModal from '@components/modals/AddToSegmentModal';
+import ExportModal, { ExportField } from '@components/modals/ExportModal';
+
+import { useContactUpdates, ContactUpdateMessage } from '@hooks/useWebSocket';
 
 import { 
   listContacts, 
   listSegments, 
   listCustomFields,
   updateContact,
+  exportContactsCsv,
+  exportContactsAdvanced,
   deleteContact,
   bulkDeleteContacts,
   bulkUpdateContacts,
-  exportContactsCsv,
+  bulkAddToSegment,
+  previewSegment,
   Contact,
   Segment,
-  CustomField
+  CustomField,
+  SegmentFilter as ApiSegmentFilter
 } from '@api/contacts';
 
 import { 
@@ -40,6 +51,16 @@ import {
   Settings
 } from 'lucide-react';
 
+// UI SegmentFilter interface that matches SegmentBuilder component
+interface UISegmentFilter {
+  id: string;
+  type: 'segment' | 'status' | 'custom';
+  field: string;
+  operator: 'equals' | 'contains' | 'startsWith' | 'not_equals';
+  value: string;
+  label: string;
+}
+
 type ViewMode = 'table' | 'cards';
 type SortField = 'email' | 'firstName' | 'lastName' | 'segment' | 'createdAt';
 
@@ -55,11 +76,21 @@ export const ContactsListPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSegment, setSelectedSegment] = useState('all');
+  const [showSegmentBuilder, setShowSegmentBuilder] = useState(false);
+  const [segmentFilters, setSegmentFilters] = useState<UISegmentFilter[]>([]);
+  const [segmentPreviewLoading, setSegmentPreviewLoading] = useState(false);
+  const [segmentPreviewCount, setSegmentPreviewCount] = useState<number | null>(null);
+  const [showAddToSegmentModal, setShowAddToSegmentModal] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilter[]>([]);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [sortBy, setSortBy] = useState<SortField>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [totalContacts, setTotalContacts] = useState(0);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
 
   // Load data
   const loadContacts = useCallback(async () => {
@@ -68,21 +99,56 @@ export const ContactsListPage: React.FC = () => {
       const response = await listContacts({
         segment: selectedSegment === 'all' ? undefined : selectedSegment,
         search: searchQuery || undefined,
+        filters: advancedFilters.length > 0 ? JSON.stringify(advancedFilters) : undefined,
         page: currentPage,
         limit: pageSize,
         sortBy,
         sortOrder
       });
       
-      setContacts(response.contacts || []);
-      setTotalContacts(response.total || 0);
+  setContacts(response.contacts || []);
+  setTotalContacts(response.total || 0);
     } catch (error) {
       toast.error('Failed to load contacts');
       console.error(error);
     } finally {
       setLoading(false);
     }
-  }, [selectedSegment, searchQuery, currentPage, pageSize, sortBy, sortOrder]);
+  }, [selectedSegment, searchQuery, advancedFilters, currentPage, pageSize, sortBy, sortOrder]);
+
+  // Real-time contact updates
+  const handleContactUpdate = useCallback((message: ContactUpdateMessage) => {
+    switch (message.type) {
+      case 'CONTACT_CREATED':
+        if (message.contact) {
+          toast.success(`New contact added: ${message.contact.email}`);
+          loadContacts(); // Refresh the list
+        }
+        break;
+      case 'CONTACT_UPDATED':
+        if (message.contact) {
+          setContacts(prev => prev.map(c => 
+            c.id === message.contact!.id ? { ...c, ...message.contact } : c
+          ));
+          toast.success(`Contact updated: ${message.contact.email}`);
+        }
+        break;
+      case 'CONTACT_DELETED':
+        if (message.contactIds) {
+          setContacts(prev => prev.filter(c => !message.contactIds!.includes(c.id)));
+          toast.success(`${message.contactIds.length} contact(s) deleted`);
+        }
+        break;
+      case 'BULK_UPDATE':
+        if (message.contactIds) {
+          toast.success(`${message.contactIds.length} contact(s) updated`);
+          loadContacts(); // Refresh for bulk updates
+        }
+        break;
+    }
+  }, [loadContacts]);
+
+  const { connected: wsConnected } = useContactUpdates(1, handleContactUpdate); // TODO: Get actual user ID
 
   const loadSegments = async () => {
     try {
@@ -109,7 +175,30 @@ export const ContactsListPage: React.FC = () => {
   useEffect(() => {
     loadSegments();
     loadCustomFields();
+    // Load recent searches from localStorage
+    const savedSearches = localStorage.getItem('recentContactSearches');
+    if (savedSearches) {
+      try {
+        setRecentSearches(JSON.parse(savedSearches));
+      } catch (error) {
+        console.error('Failed to parse recent searches:', error);
+      }
+    }
   }, []);
+
+  // Auto-preview segment when filters change
+  useEffect(() => {
+    if (showSegmentBuilder) {
+      handleSegmentPreview();
+    }
+  }, [segmentFilters, showSegmentBuilder]);
+
+  // Reload contacts when advanced filters change
+  useEffect(() => {
+    if (advancedFilters.length > 0) {
+      loadContacts();
+    }
+  }, [advancedFilters]);
 
   // Handlers
   const handleSort = (field: string) => {
@@ -125,11 +214,48 @@ export const ContactsListPage: React.FC = () => {
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     setCurrentPage(1);
+    
+    // Save to recent searches if it's a meaningful search
+    if (query.trim() && query.length > 2) {
+      const newRecentSearches = [
+        query,
+        ...recentSearches.filter(s => s !== query)
+      ].slice(0, 5); // Keep only last 5 searches
+      
+      setRecentSearches(newRecentSearches);
+      localStorage.setItem('recentContactSearches', JSON.stringify(newRecentSearches));
+    }
   };
 
   const handleSegmentChange = (segment: string) => {
     setSelectedSegment(segment);
     setCurrentPage(1);
+  };
+
+  const handleSegmentPreview = async () => {
+    if (segmentFilters.length === 0) {
+      setSegmentPreviewCount(totalContacts);
+      return;
+    }
+
+    setSegmentPreviewLoading(true);
+    try {
+      // Convert UI filters to API filters
+      const apiFilters: ApiSegmentFilter[] = segmentFilters.map(filter => ({
+        field: filter.field,
+        operator: filter.operator,
+        value: filter.value
+      }));
+
+      const result = await previewSegment(apiFilters);
+      setSegmentPreviewCount(result.count);
+      toast.success(`Preview: ${result.count} contacts match these filters`);
+    } catch (error) {
+      toast.error('Failed to preview segment');
+      console.error('Segment preview error:', error);
+    } finally {
+      setSegmentPreviewLoading(false);
+    }
   };
 
   const handleInlineEdit = async (id: number, field: string, value: any) => {
@@ -195,26 +321,65 @@ export const ContactsListPage: React.FC = () => {
   };
 
   const handleBulkExport = async () => {
+    setShowExportModal(true);
+  };
+
+  const handleExport = async (fields: string[], format: 'csv' | 'xlsx') => {
+    setExportLoading(true);
     try {
-      const response = await exportContactsCsv({ segment: selectedSegment });
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `contacts-${selectedSegment}-${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      toast.success('Export started');
+      // Convert selectedIds to strings and prepare export options
+      const contactIds = selectedIds.length > 0 ? selectedIds.map(id => id.toString()) : undefined;
+      
+      // Prepare filters in the format expected by backend
+      const filters = advancedFilters.length > 0 ? 
+        Object.fromEntries(advancedFilters.map(f => [f.field, { operator: f.operator, value: f.value }])) 
+        : undefined;
+      
+      // Prepare export options
+      const exportOptions = {
+        fields: fields.length > 0 ? fields : undefined,
+        format,
+        contactIds,
+        filters
+      };
+
+      const result = await exportContactsAdvanced(exportOptions);
+      
+      if (result.blob) {
+        // Handle immediate CSV download
+        const url = window.URL.createObjectURL(result.blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `contacts-export-${new Date().toISOString().split('T')[0]}.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        toast.success('Export completed successfully');
+        setShowExportModal(false);
+      } else if (result.downloadUrl) {
+        // Handle download URL (for non-CSV formats)
+        const a = document.createElement('a');
+        a.href = result.downloadUrl;
+        a.download = `contacts-export-${new Date().toISOString().split('T')[0]}.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        toast.success('Export completed successfully');
+        setShowExportModal(false);
+      } else {
+        toast.error('No export data received');
+      }
     } catch (error) {
       toast.error('Failed to export contacts');
+      console.error('Export error:', error);
+    } finally {
+      setExportLoading(false);
     }
   };
 
   const handleBulkAddToSegment = () => {
-    // TODO: Open segment selection modal
-    console.log('Add to segment:', selectedIds);
+    setShowAddToSegmentModal(true);
   };
 
   const handleBulkSendEmail = () => {
@@ -254,6 +419,12 @@ export const ContactsListPage: React.FC = () => {
         <div>
           <h1 className="font-display font-bold text-3xl text-neutral-900 dark:text-neutral-100 mb-2">
             Contacts
+            {wsConnected && (
+              <span className="ml-3 inline-flex items-center">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="ml-1 text-xs text-green-600 dark:text-green-400">Live</span>
+              </span>
+            )}
           </h1>
           <p className="text-neutral-600 dark:text-neutral-400">
             Manage your subscriber list and segments
@@ -355,6 +526,7 @@ export const ContactsListPage: React.FC = () => {
               onChange={setSearchQuery}
               onSearch={handleSearch}
               suggestions={searchSuggestions}
+              recentSearches={recentSearches}
               loading={loading}
             />
 
@@ -390,10 +562,26 @@ export const ContactsListPage: React.FC = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => navigate('/contacts/lists')}
+                  onClick={() => setShowSegmentBuilder(prev => !prev)}
                   icon={<Sparkles className="w-4 h-4" />}
+                  className={showSegmentBuilder ? 'bg-primary-50 dark:bg-primary-950/20 text-primary-600' : ''}
                 >
                   Smart Segments
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAdvancedFilters(prev => !prev)}
+                  icon={<Filter className="w-4 h-4" />}
+                  className={showAdvancedFilters || advancedFilters.length > 0 ? 'bg-accent-50 dark:bg-accent-950/20 text-accent-600' : ''}
+                >
+                  Advanced Filters
+                  {advancedFilters.length > 0 && (
+                    <Badge variant="accent" size="sm" className="ml-1">
+                      {advancedFilters.length}
+                    </Badge>
+                  )}
                 </Button>
                 
                 <div className="flex items-center bg-neutral-100 dark:bg-neutral-800 rounded-lg p-1">
@@ -423,6 +611,48 @@ export const ContactsListPage: React.FC = () => {
           </div>
         </Card>
       </motion.div>
+        {/* Segment Builder */}
+        <AnimatePresence>
+          {showSegmentBuilder && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <Card variant="gradient">
+                <SegmentBuilder
+                  filters={segmentFilters}
+                  onChange={setSegmentFilters}
+                  availableSegments={segments.map(s => s.name).filter(name => name !== 'All Subscribers')}
+                  previewCount={segmentPreviewCount ?? undefined}
+                  onPreview={handleSegmentPreview}
+                />
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+      {/* Advanced Filters */}
+      <AnimatePresence>
+        {showAdvancedFilters && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <AdvancedFilters
+              filters={advancedFilters}
+              onChange={setAdvancedFilters}
+              availableSegments={segments.map(s => s.name).filter(name => name !== 'All Subscribers')}
+              customFields={customFields}
+              isOpen={showAdvancedFilters}
+              onToggle={() => setShowAdvancedFilters(prev => !prev)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Contacts List */}
       <motion.div
@@ -439,18 +669,14 @@ export const ContactsListPage: React.FC = () => {
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.3 }}
             >
-              <ContactTable
+              <VirtualizedContactList
                 contacts={contacts}
                 customFields={customFields}
                 selectedIds={selectedIds}
                 onSelectionChange={setSelectedIds}
                 onEdit={handleEditContact}
                 onDelete={handleDeleteContact}
-                onInlineEdit={handleInlineEdit}
                 loading={loading}
-                sortBy={sortBy}
-                sortOrder={sortOrder}
-                onSort={handleSort}
               />
             </motion.div>
           ) : (
@@ -548,6 +774,33 @@ export const ContactsListPage: React.FC = () => {
           </Card>
         </motion.div>
       )}
+      
+      {/* Add to Segment Modal */}
+      <AddToSegmentModal
+        isOpen={showAddToSegmentModal}
+        onClose={() => setShowAddToSegmentModal(false)}
+        contactIds={selectedIds}
+        availableSegments={segments.map(s => s.name).filter(name => name !== 'All Subscribers')}
+        onSuccess={() => {
+          setSelectedIds([]);
+          loadContacts();
+        }}
+      />
+
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        onExport={handleExport}
+        availableFields={customFields.map(cf => ({
+          id: cf.fieldKey,
+          label: cf.label,
+          icon: <Settings className="w-4 h-4" />,
+          category: 'custom' as const
+        }))}
+        selectedCount={selectedIds.length > 0 ? selectedIds.length : undefined}
+        loading={exportLoading}
+      />
     </div>
   );
 };

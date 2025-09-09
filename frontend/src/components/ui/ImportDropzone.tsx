@@ -13,7 +13,7 @@ import {
   Users
 } from 'lucide-react';
 
-interface ImportDropzoneProps {
+interface ImportDropzoneProps extends Omit<React.ComponentProps<typeof motion.div>, 'ref'> {
   onFileSelect: (file: File) => void;
   onUpload: (file: File, mapping?: string) => Promise<void>;
   loading?: boolean;
@@ -74,19 +74,22 @@ export const ImportDropzone: React.FC<ImportDropzoneProps> = ({
   return (
     <div className="space-y-6">
       {/* Dropzone */}
-      <motion.div
+      <div
         {...getRootProps()}
         className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all duration-300 ${
           isDragActive || dragActive
-            ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/20 scale-105'
+            ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/20'
             : selectedFile
             ? 'border-accent-300 bg-accent-50 dark:bg-accent-950/20'
             : 'border-neutral-300 dark:border-neutral-700 hover:border-primary-400 hover:bg-primary-50/50 dark:hover:bg-primary-950/10'
         }`}
-        whileHover={{ scale: selectedFile ? 1 : 1.02 }}
-        whileTap={{ scale: 0.98 }}
       >
-        <input {...getInputProps()} />
+        <motion.div
+          whileHover={{ scale: selectedFile ? 1 : 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className={`${(isDragActive || dragActive) ? 'scale-105' : ''}`}
+        >
+          <input {...getInputProps()} />
         
         <AnimatePresence mode="wait">
           {selectedFile ? (
@@ -186,7 +189,8 @@ export const ImportDropzone: React.FC<ImportDropzoneProps> = ({
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
+        </motion.div>
+      </div>
 
       {/* Column mapping */}
       {selectedFile && (

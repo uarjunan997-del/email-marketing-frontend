@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Contact, CustomField } from '@api/contacts';
 import { Badge } from '@components/atoms/Badge';
@@ -36,7 +36,197 @@ interface ContactTableProps {
 
 type SortField = 'email' | 'firstName' | 'lastName' | 'segment' | 'createdAt';
 
-export const ContactTable: React.FC<ContactTableProps> = ({
+// Memoized individual row component for better performance
+const ContactRow = memo<{
+  contact: Contact;
+  customFields: CustomField[];
+  isSelected: boolean;
+  onSelect: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onInlineEdit: (field: string, value: any) => void;
+}>(({ contact, customFields, isSelected, onSelect, onEdit, onDelete, onInlineEdit }) => {
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState<string>('');
+
+  const handleStartEdit = useCallback((field: string, currentValue: string) => {
+    setEditingField(field);
+    setEditValue(currentValue || '');
+  }, []);
+
+  const handleSaveEdit = useCallback(() => {
+    if (editingField) {
+      onInlineEdit(editingField, editValue);
+      setEditingField(null);
+    }
+  }, [editingField, editValue, onInlineEdit]);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingField(null);
+    setEditValue('');
+  }, []);
+
+  const renderEditableField = useCallback((field: string, value: string, placeholder: string) => {
+    if (editingField === field) {
+      return (
+        <div className="flex items-center gap-1">
+          <Input
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            className="w-24 text-sm"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSaveEdit();
+              if (e.key === 'Escape') handleCancelEdit();
+            }}
+            autoFocus
+          />
+          <Button variant="ghost" size="sm" onClick={handleSaveEdit} icon={<Check className="w-3 h-3" />} />
+          <Button variant="ghost" size="sm" onClick={handleCancelEdit} icon={<X className="w-3 h-3" />} />
+        </div>
+      );
+    }
+
+    return (
+      <button
+        onClick={() => handleStartEdit(field, value)}
+        className="text-left hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded px-1 py-0.5 transition-colors group"
+      >
+        <span className={value ? '' : 'text-neutral-400 italic'}>
+          {value || placeholder}
+        </span>
+        <Edit3 className="w-3 h-3 ml-1 opacity-0 group-hover:opacity-50 inline-block" />
+      </button>
+    );
+  }, [editingField, editValue, handleStartEdit, handleSaveEdit, handleCancelEdit]);
+
+  return (
+    <motion.tr
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className={clsx(
+        'border-b border-neutral-100 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors',
+        isSelected && 'bg-primary-50 dark:bg-primary-950/20'
+      )}
+    >
+      {/* Selection */}
+      <td className="px-4 py-4 w-12">
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={onSelect}
+          className="w-4 h-4 text-primary-600 rounded border-neutral-300 focus:ring-primary-500"
+        />
+      </td>
+
+      {/* Name */}
+      <td className="px-4 py-4">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+            {(contact.firstName?.[0] || contact.email[0]).toUpperCase()}
+          </div>
+          <div>
+            <div className="font-medium text-neutral-900 dark:text-neutral-100">
+              {renderEditableField('firstName', contact.firstName || '', 'First name')}
+              {' '}
+              {renderEditableField('lastName', contact.lastName || '', 'Last name')}
+            </div>
+          </div>
+        </div>
+      </td>
+
+      {/* Email */}
+      <td className="px-4 py-4">
+        <div className="flex items-center gap-1">
+          <Mail className="w-4 h-4 text-neutral-400" />
+          <span className="text-neutral-900 dark:text-neutral-100">{contact.email}</span>
+        </div>
+      </td>
+
+      {/* Phone */}
+      <td className="px-4 py-4">
+        {contact.phone ? (
+          <div className="flex items-center gap-1">
+            <Phone className="w-4 h-4 text-neutral-400" />
+            <span className="text-neutral-600 dark:text-neutral-400">{contact.phone}</span>
+          </div>
+        ) : (
+          <span className="text-neutral-400 italic">No phone</span>
+        )}
+      </td>
+
+      {/* Location */}
+      <td className="px-4 py-4">
+        {contact.city || contact.country ? (
+          <div className="flex items-center gap-1">
+            <MapPin className="w-4 h-4 text-neutral-400" />
+            <span className="text-neutral-600 dark:text-neutral-400">
+              {[contact.city, contact.country].filter(Boolean).join(', ')}
+            </span>
+          </div>
+        ) : (
+          <span className="text-neutral-400 italic">No location</span>
+        )}
+      </td>
+
+      {/* Segment */}
+      <td className="px-4 py-4">
+        {contact.segment ? (
+          <Badge variant="outline">{contact.segment}</Badge>
+        ) : (
+          <span className="text-neutral-400 italic">No segment</span>
+        )}
+      </td>
+
+      {/* Status */}
+      <td className="px-4 py-4">
+        <div className="flex gap-1">
+          {contact.unsubscribed ? (
+            <Badge variant="warning" className="flex items-center gap-1">
+              <UserX className="w-3 h-3" />
+              Unsubscribed
+            </Badge>
+          ) : (
+            <Badge variant="success" className="flex items-center gap-1">
+              <UserCheck className="w-3 h-3" />
+              Subscribed
+            </Badge>
+          )}
+          {contact.suppressed && (
+            <Badge variant="danger" className="flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3" />
+              Suppressed
+            </Badge>
+          )}
+        </div>
+      </td>
+
+      {/* Created Date */}
+      <td className="px-4 py-4">
+        <div className="flex items-center gap-1 text-neutral-600 dark:text-neutral-400">
+          <Calendar className="w-4 h-4" />
+          <span>{contact.createdAt ? new Date(contact.createdAt).toLocaleDateString() : '-'}</span>
+        </div>
+      </td>
+
+      {/* Actions */}
+      <td className="px-4 py-4">
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={onEdit}>
+            Edit
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onDelete} className="text-red-600 hover:text-red-700">
+            Delete
+          </Button>
+        </div>
+      </td>
+    </motion.tr>
+  );
+});
+
+ContactRow.displayName = 'ContactRow';
+
+export const ContactTable: React.FC<ContactTableProps> = memo(({
   contacts,
   customFields,
   selectedIds,
@@ -92,12 +282,12 @@ export const ContactTable: React.FC<ContactTableProps> = ({
 
   const getStatusIcon = (contact: Contact) => {
     if (contact.suppressed) {
-      return <AlertTriangle className="w-4 h-4 text-red-500" title="Suppressed" />;
+      return <AlertTriangle className="w-4 h-4 text-red-500" />;
     }
     if (contact.unsubscribed) {
-      return <UserX className="w-4 h-4 text-amber-500" title="Unsubscribed" />;
+      return <UserX className="w-4 h-4 text-amber-500" />;
     }
-    return <UserCheck className="w-4 h-4 text-accent-500" title="Active" />;
+    return <UserCheck className="w-4 h-4 text-accent-500" />;
   };
 
   const SortButton: React.FC<{ field: string; children: React.ReactNode }> = ({ field, children }) => (
@@ -314,6 +504,8 @@ export const ContactTable: React.FC<ContactTableProps> = ({
       )}
     </div>
   );
-};
+});
+
+ContactTable.displayName = 'ContactTable';
 
 export default ContactTable;

@@ -63,11 +63,11 @@ export const ContactsPage: React.FC = () => {
   const loadContacts = async () => {
     setLoading(true);
     try {
-      const data = await listContacts(
-        selectedSegment === 'all' ? undefined : selectedSegment,
-        searchQuery || undefined
-      );
-      setContacts(data);
+  const data = await listContacts({
+        segment: selectedSegment === 'all' ? undefined : selectedSegment,
+        search: searchQuery || undefined
+      });
+  setContacts(data.contacts);
     } catch (error) {
       toast.error('Failed to load contacts');
       console.error(error);

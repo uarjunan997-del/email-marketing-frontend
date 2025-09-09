@@ -2,7 +2,7 @@ import React from 'react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 
-export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface CardProps extends Omit<React.ComponentProps<typeof motion.div>, 'ref'> {
   variant?: 'default' | 'glass' | 'gradient' | 'elevated';
   hover?: boolean;
   padding?: 'none' | 'sm' | 'md' | 'lg';

@@ -4,6 +4,9 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    global: 'window'
+  },
   resolve: {
     alias: {
       '@api': path.resolve(__dirname, 'src/api'),

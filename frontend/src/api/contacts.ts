@@ -1,4 +1,4 @@
-import { apiCall, api } from '../utils/api';
+import { apiCall, api, API_BASE_URL } from '../utils/api';
 
 export interface Contact { 
   id: number; 
@@ -71,24 +71,45 @@ export interface Segment {
 }
 
 // Contact CRUD operations
-export const listContacts = (params?: { 
+export const listContacts = async (params?: { 
   segment?: string; 
   search?: string; 
+  filters?: string;
   page?: number; 
   limit?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
-}) => {
+}): Promise<{ contacts: Contact[]; total: number; page: number; totalPages: number }> => {
   const searchParams = new URLSearchParams();
   if (params?.segment && params.segment !== 'all') searchParams.append('segment', params.segment);
   if (params?.search) searchParams.append('search', params.search);
+  if (params?.filters) searchParams.append('filters', params.filters);
   if (params?.page) searchParams.append('page', params.page.toString());
   if (params?.limit) searchParams.append('limit', params.limit.toString());
   if (params?.sortBy) searchParams.append('sortBy', params.sortBy);
   if (params?.sortOrder) searchParams.append('sortOrder', params.sortOrder);
-  
+
   const qs = searchParams.toString() ? `?${searchParams.toString()}` : '';
-  return apiCall<{ contacts: Contact[]; total: number; page: number; totalPages: number }>('GET', `/contacts${qs}`);
+  const res = await apiCall<any>('GET', `/contacts${qs}`);
+
+  // Normalize various backend shapes to a consistent structure
+  if (Array.isArray(res)) {
+    return { contacts: res as Contact[], total: res.length, page: 1, totalPages: 1 };
+  }
+  if (res && Array.isArray(res.contacts)) {
+    const { contacts, total = contacts.length, page = 1, totalPages = 1 } = res;
+    return { contacts, total, page, totalPages };
+  }
+  if (res && Array.isArray(res.items)) {
+    const { items, total = items.length, page = 1, totalPages = 1 } = res;
+    return { contacts: items, total, page, totalPages };
+  }
+  // Common Spring Page response: { content, totalElements, totalPages, number }
+  if (res && Array.isArray(res.content)) {
+    const { content, totalElements = content.length, totalPages = 1, number = 0 } = res;
+    return { contacts: content, total: totalElements, page: Number(number) + 1, totalPages };
+  }
+  return { contacts: [], total: 0, page: 1, totalPages: 1 };
 };
 
 export const getContact = (id: number) => apiCall<Contact>('GET', `/contacts/${id}`);
@@ -115,6 +136,9 @@ export const bulkDeleteContacts = (ids: number[], erase = false) =>
 
 export const bulkUpdateContacts = (ids: number[], updates: Partial<Contact>) =>
   apiCall<void>('PUT', '/contacts/bulk', { ids, updates });
+
+export const bulkAddToSegment = (contactIds: number[], segment: string) =>
+  apiCall<{ status: string; updated: number }>('POST', '/contacts/bulk/add-to-segment', { contactIds, segment });
 
 // Segments
 export const listSegments = async (): Promise<Segment[]> => {
@@ -242,18 +266,126 @@ export const purgeContactData = (email: string) =>
   apiCall<void>('DELETE', `/contacts/gdpr/purge?email=${encodeURIComponent(email)}`);
 
 // Export
-export const exportContactsCsv = (params?: { segment?: string; format?: string }) => {
+export const exportContactsCsv = (params?: { segment?: string; format?: string; fields?: string[] }) => {
   const token = localStorage.getItem('token');
   const searchParams = new URLSearchParams();
   if (params?.segment) searchParams.append('segment', params.segment);
   if (params?.format) searchParams.append('format', params.format);
+  if (params?.fields && params.fields.length > 0) {
+    searchParams.append('fields', params.fields.join(','));
+  }
   
   const qs = searchParams.toString() ? `?${searchParams.toString()}` : '?format=csv';
-  
-  return fetch(`${import.meta.env.VITE_API_BASE_URL}/contacts/export${qs}`, {
+
+  // Always use configured API base and attach auth header
+  return fetch(`${API_BASE_URL}/contacts/export${qs}`, {
     headers: { 'Authorization': `Bearer ${token}` }
   });
 };
+
+// Advanced export with field selection, filters, and job tracking
+export const exportContactsAdvanced = async (exportOptions: {
+  fields?: string[];
+  format?: 'csv' | 'xlsx';
+  contactIds?: string[];
+  filters?: Record<string, any>;
+}): Promise<{ blob?: Blob; downloadUrl?: string }> => {
+  const { fields, format = 'csv', contactIds, filters } = exportOptions;
+  
+  // Convert string IDs to numbers for backend
+  const contactIdNumbers = contactIds?.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+  
+  // Convert filters to expected format 
+  let filterList = undefined;
+  if (filters) {
+    filterList = Object.entries(filters).map(([field, filterDef]) => ({
+      field,
+      operator: filterDef.operator,
+      value: filterDef.value
+    }));
+  }
+  
+  // For CSV exports, use direct download to avoid blob handling issues
+  if (format === 'csv') {
+    const params = new URLSearchParams();
+    if (contactIdNumbers && contactIdNumbers.length > 0) {
+      contactIdNumbers.forEach(id => params.append('contactIds', id.toString()));
+    }
+    if (fields && fields.length > 0) {
+      params.append('fields', fields.join(','));
+    }
+    if (filterList) {
+      params.append('filters', JSON.stringify(filterList));
+    }
+    params.append('format', 'csv');
+    
+    // Create download URL and fetch with Authorization header
+    const token = localStorage.getItem('token');
+    const downloadUrl = `${API_BASE_URL}/contacts/export?${params.toString()}`;
+
+    const response = await fetch(downloadUrl, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Export failed: ${response.status} ${response.statusText}`);
+    }
+    
+    const blob = await response.blob();
+    return { blob };
+  }
+  
+  // For non-CSV formats, use the JSON API
+  const response = await api.post('/contacts/export', {
+    fields: fields?.join(','),
+    format,
+    contactIds: contactIdNumbers,
+    filters: filterList
+  });
+
+  // If backend returns a download URL, fetch it with Authorization and return a blob
+  const token = localStorage.getItem('token');
+  const rawUrl: string = response.data.downloadUrl;
+  // Build absolute URL from potential relative path
+  const absoluteUrl = /^https?:\/\//i.test(rawUrl)
+    ? rawUrl
+    : rawUrl.startsWith('/')
+      ? `${API_BASE_URL}${rawUrl}`
+      : `${API_BASE_URL}/${rawUrl}`;
+
+  const fileRes = await fetch(absoluteUrl, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  if (!fileRes.ok) {
+    // Fallback: return the URL so caller can attempt manual navigation if needed
+    return { downloadUrl: absoluteUrl };
+  }
+  const blob = await fileRes.blob();
+  return { blob };
+};
+
+// Remove export job status function since backend doesn't support it
+// export const getExportJobStatus = async (jobId: string): Promise<{
+//   status: 'pending' | 'running' | 'completed' | 'failed';
+//   progress?: number;
+//   downloadUrl?: string;
+//   error?: string;
+// }> => {
+//   const response = await api.get(`/contacts/export/${jobId}/status`);
+//   return response.data;
+// };
+
+// Segment preview
+export interface SegmentFilter {
+  field: string;
+  operator: string;
+  value: any;
+}
+
+export const previewSegment = (filters: SegmentFilter[]) =>
+  apiCall<{ count: number; filters: SegmentFilter[] }>('POST', '/contacts/segments/preview', { filters });
 
 // Contact activity
 export const getContactActivity = (id: number) => 

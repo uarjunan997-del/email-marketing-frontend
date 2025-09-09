@@ -2,7 +2,7 @@ import React from 'react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 
-export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface InputProps extends Omit<React.ComponentProps<typeof motion.input>, 'ref'> {
   label?: string;
   error?: string;
   icon?: React.ReactNode;
