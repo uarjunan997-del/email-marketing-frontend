@@ -7,6 +7,7 @@ import DashboardPage from '@pages/dashboard';
 import CampaignsPage from '@pages/CampaignsPage';
 import TemplateGalleryPage from '@pages/templates';
 import TemplateEditorPage from '@pages/templates/EditorPage';
+import AIGeneratorPage from '@pages/templates/AIGeneratorPage';
 import ContactsPage from '@pages/ContactsPage';
 import SettingsPage from '@pages/SettingsPage';
 import CreateCampaignPage from '@pages/campaigns/CreateCampaignPage';
@@ -51,6 +52,7 @@ export const App: React.FC = () => {
               <Route path="contacts" element={<ContactsListPage />} />
               <Route path="contacts/import" element={<ImportPage />} />
               <Route path="templates" element={<TemplateGalleryPage />} />
+              <Route path="templates/ai-generator" element={<AIGeneratorPage />} />
               <Route path="templates/:templateId" element={<TemplateEditorPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>

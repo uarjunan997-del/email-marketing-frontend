@@ -16,7 +16,9 @@ import {
   Eye,
   Calendar,
   Tag,
-  Mail
+  Mail,
+  Wand2,
+  Sparkles
 } from 'lucide-react';
 
 const TemplateGalleryPage: React.FC = () => {
@@ -57,6 +59,15 @@ const TemplateGalleryPage: React.FC = () => {
             Create, manage, and organize your email templates
           </p>
         </div>
+        <Button
+          onClick={() => navigate('/templates/ai-generator')}
+          icon={<Wand2 className="w-4 h-4" />}
+          variant="secondary"
+          size="lg"
+          className="mr-2"
+        >
+          AI Generator
+        </Button>
         <Button
           onClick={() => navigate('/templates/new')}
           icon={<Plus className="w-4 h-4" />}
@@ -140,15 +151,25 @@ const TemplateGalleryPage: React.FC = () => {
               No templates yet
             </h3>
             <p className="text-neutral-600 dark:text-neutral-400 mb-6 max-w-md mx-auto">
-              Get started by creating your first email template. Choose from our library of beautiful designs or start from scratch.
+              Get started by creating your first email template. Use our AI generator with your brand assets or start from scratch.
             </p>
-            <Button
-              onClick={() => navigate('/templates/new')}
-              icon={<Plus className="w-4 h-4" />}
-              size="lg"
-            >
-              Create Your First Template
-            </Button>
+            <div className="flex items-center justify-center gap-4">
+              <Button
+                onClick={() => navigate('/templates/ai-generator')}
+                icon={<Sparkles className="w-4 h-4" />}
+                size="lg"
+              >
+                Try AI Generator
+              </Button>
+              <Button
+                onClick={() => navigate('/templates/new')}
+                icon={<Plus className="w-4 h-4" />}
+                variant="outline"
+                size="lg"
+              >
+                Start from Scratch
+              </Button>
+            </div>
           </motion.div>
         ) : (
           <motion.div
